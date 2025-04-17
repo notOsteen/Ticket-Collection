@@ -9,7 +9,7 @@ class SplashScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      precacheImage(Assets.splash.provider(), context);
+      precacheImage(Assets.splashPng.provider(), context);
 
       Future.delayed(const Duration(seconds: 3), () {
         if (context.mounted) {
@@ -23,7 +23,7 @@ class SplashScreen extends StatelessWidget {
 
     return Scaffold(
       body: SizedBox.expand(
-        child: Assets.splash.image(fit: BoxFit.cover),
+        child: Assets.splashPng.image(fit: BoxFit.cover),
       ),
     );
   }

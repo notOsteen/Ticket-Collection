@@ -12,10 +12,11 @@ import 'package:flutter/widgets.dart';
 class Assets {
   const Assets._();
 
-  static const AssetGenImage splash = AssetGenImage('assets/splash.jpeg');
+  static const AssetGenImage splashJpeg = AssetGenImage('assets/splash.jpeg');
+  static const AssetGenImage splashPng = AssetGenImage('assets/splash.png');
 
   /// List of all assets
-  static List<AssetGenImage> get values => [splash];
+  static List<AssetGenImage> get values => [splashJpeg, splashPng];
 }
 
 class AssetGenImage {

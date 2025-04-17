@@ -27,6 +27,10 @@ class _MyHomePageState extends State<MyHomePage> {
     _loadSavedData();
   }
 
+  bool get isEndTicketEnabled {
+    return startTicketController.text.isNotEmpty;
+  }
+
   Future<void> _loadSavedData() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String? savedDate = prefs.getString('date');
@@ -47,6 +51,8 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   Future<void> _saveData() async {
+    if (mounted) hideKeyboard(context);
+
     if (!_formKey.currentState!.validate()) return;
 
     SharedPreferences prefs = await SharedPreferences.getInstance();
@@ -59,7 +65,9 @@ class _MyHomePageState extends State<MyHomePage> {
     int end = int.tryParse(endTicket) ?? 0;
     double amt = double.tryParse(amount) ?? 0.0;
 
-    double total = (end - start) * amt;
+    int count = (start <= end) ? (end - start) : 0;
+    double total = count * amt;
+
     String currentDate = DateTime.now().toLocal().toString().split(' ')[0];
 
     TicketData data = TicketData(
@@ -68,11 +76,8 @@ class _MyHomePageState extends State<MyHomePage> {
       amount: amount,
       total: total.toStringAsFixed(2),
       date: currentDate,
+      count: count,
     );
-
-    setState(() {
-      savedDataList.add(data);
-    });
 
     String savedDataJson =
         jsonEncode(savedDataList.map((item) => item.toJson()).toList());
@@ -82,10 +87,13 @@ class _MyHomePageState extends State<MyHomePage> {
     startTicketController.clear();
     endTicketController.clear();
     amountController.clear();
-    if (mounted) hideKeyboard(context);
+
+    setState(() {
+      savedDataList.add(data);
+    });
   }
 
-  void _deleteItem(int index) async {
+  Future<void> _deleteItem(int index) async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     setState(() {
       savedDataList.removeAt(index);
@@ -95,11 +103,53 @@ class _MyHomePageState extends State<MyHomePage> {
     await prefs.setString('savedDataList', updatedJson);
   }
 
+  void _clearAll(BuildContext context) async {
+    bool? shouldClear = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Warning'),
+          content: const Text(
+              'Are you sure you want to clear all data? This action cannot be undone.'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () {
+                Navigator.of(context).pop(false);
+              },
+            ),
+            TextButton(
+              child: const Text('Clear'),
+              onPressed: () {
+                Navigator.of(context).pop(true);
+              },
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldClear == true) {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      setState(() {
+        savedDataList.clear();
+      });
+      prefs.clear();
+      startTicketController.clear();
+      endTicketController.clear();
+      amountController.clear();
+    }
+  }
+
   double get totalCollected {
     return savedDataList.fold(
       0.0,
       (sum, item) => sum + (double.tryParse(item.total) ?? 0.0),
     );
+  }
+
+  int get totalCount {
+    return savedDataList.fold(0, (sum, item) => sum + item.count);
   }
 
   @override
@@ -123,6 +173,10 @@ class _MyHomePageState extends State<MyHomePage> {
           style: TextStyle(color: Colors.white),
         ),
         centerTitle: true,
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => downloadPdf(context, savedDataList),
+        child: const Icon(Icons.download),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -150,6 +204,9 @@ class _MyHomePageState extends State<MyHomePage> {
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 validator: (value) =>
                     value == null || value.isEmpty ? 'Required' : null,
+                onChanged: (text) {
+                  setState(() {});
+                },
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -161,8 +218,18 @@ class _MyHomePageState extends State<MyHomePage> {
                 ),
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                validator: (value) =>
-                    value == null || value.isEmpty ? 'Required' : null,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Required';
+                  }
+                  int start = int.tryParse(startTicketController.text) ?? 0;
+                  int end = int.tryParse(value) ?? 0;
+                  if (end <= start) {
+                    return 'End ticket should be greater than start ticket';
+                  }
+                  return null;
+                },
+                enabled: isEndTicketEnabled,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -210,10 +277,8 @@ class _MyHomePageState extends State<MyHomePage> {
                             ),
                           ),
                           IconButton(
-                            icon:
-                                const Icon(Icons.download, color: Colors.blue),
-                            onPressed: () =>
-                                downloadPdf(context, savedDataList),
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => _clearAll(context),
                           ),
                         ],
                       ),
@@ -221,51 +286,93 @@ class _MyHomePageState extends State<MyHomePage> {
                       Expanded(
                         child: SingleChildScrollView(
                           scrollDirection: Axis.vertical,
-                          child: DataTable(
-                            columns: const <DataColumn>[
-                              DataColumn(label: Text('Start')),
-                              DataColumn(label: Text('End')),
-                              DataColumn(label: Text('Amount')),
-                              DataColumn(label: Text('Total')),
-                            ],
-                            rows: [
-                              ...savedDataList.asMap().entries.map(
-                                (entry) {
-                                  final ticket = entry.value;
-                                  final index = entry.key;
-                                  return DataRow(
-                                    cells: <DataCell>[
-                                      DataCell(Text(ticket.startTicket)),
-                                      DataCell(Text(ticket.endTicket)),
-                                      DataCell(Text(ticket.amount)),
-                                      DataCell(Text(ticket.total)),
-                                    ],
-                                    onLongPress: () => _showDeleteDialog(index),
-                                  );
-                                },
-                              ),
-                              DataRow(
-                                color:
-                                    WidgetStateProperty.all(Colors.grey[300]),
-                                cells: <DataCell>[
-                                  const DataCell(Text(
-                                    'Total',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold),
-                                  )),
-                                  const DataCell(Text('')),
-                                  const DataCell(Text('')),
-                                  DataCell(Text(
-                                    totalCollected.toStringAsFixed(2),
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold),
-                                  )),
-                                ],
-                              ),
-                            ],
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: DataTable(
+                              columns: const <DataColumn>[
+                                DataColumn(
+                                    label: Text('Start',
+                                        style: TextStyle(fontSize: 12))),
+                                DataColumn(
+                                    label: Text('End',
+                                        style: TextStyle(fontSize: 12))),
+                                DataColumn(
+                                    label: Text('Amount',
+                                        style: TextStyle(fontSize: 12))),
+                                DataColumn(
+                                    label: Text('Count',
+                                        style: TextStyle(fontSize: 12))),
+                                DataColumn(
+                                    label: Text('Total',
+                                        style: TextStyle(fontSize: 12))),
+                              ],
+                              rows: [
+                                ...savedDataList.asMap().entries.map(
+                                  (entry) {
+                                    final ticket = entry.value;
+                                    final index = entry.key;
+                                    return DataRow(
+                                      cells: <DataCell>[
+                                        DataCell(Text(ticket.startTicket,
+                                            style:
+                                                const TextStyle(fontSize: 12))),
+                                        DataCell(Text(ticket.endTicket,
+                                            style:
+                                                const TextStyle(fontSize: 12))),
+                                        DataCell(Text(ticket.amount,
+                                            style:
+                                                const TextStyle(fontSize: 12))),
+                                        DataCell(Text(ticket.count.toString(),
+                                            style:
+                                                const TextStyle(fontSize: 12))),
+                                        DataCell(Text(
+                                          double.tryParse(ticket.total)
+                                                      ?.remainder(1) ==
+                                                  0
+                                              ? double.parse(ticket.total)
+                                                  .toInt()
+                                                  .toString()
+                                              : double.parse(ticket.total)
+                                                  .toStringAsFixed(2),
+                                          style: const TextStyle(fontSize: 12),
+                                        )),
+                                      ],
+                                      onLongPress: () =>
+                                          _showDeleteDialog(index),
+                                    );
+                                  },
+                                ),
+                                DataRow(
+                                  color:
+                                      WidgetStateProperty.all(Colors.grey[300]),
+                                  cells: <DataCell>[
+                                    const DataCell(Text('Total',
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold))),
+                                    const DataCell(Text('',
+                                        style: TextStyle(fontSize: 12))),
+                                    const DataCell(Text('',
+                                        style: TextStyle(fontSize: 12))),
+                                    DataCell(Text(totalCount.toString(),
+                                        style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold))),
+                                    DataCell(Text(
+                                      totalCollected % 1 == 0
+                                          ? totalCollected.toInt().toString()
+                                          : totalCollected.toStringAsFixed(2),
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold),
+                                    )),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
+                      )
                     ],
                   ),
                 ),
@@ -276,7 +383,6 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  // Method to show the delete confirmation dialog with row details
   void _showDeleteDialog(int index) {
     TicketData ticket = savedDataList[index];
     showDialog(
@@ -291,6 +397,7 @@ class _MyHomePageState extends State<MyHomePage> {
               Text('Start Ticket: ${ticket.startTicket}'),
               Text('End Ticket: ${ticket.endTicket}'),
               Text('Amount: ${ticket.amount}'),
+              Text('Count: ${ticket.count}'),
               Text('Total: ${ticket.total}'),
               const SizedBox(height: 16),
               const Text('Are you sure you want to delete this entry?'),

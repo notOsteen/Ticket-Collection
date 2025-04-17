@@ -6,6 +6,7 @@ class TicketData {
   final String amount;
   final String total;
   final String date;
+  final int count;
 
   TicketData({
     required this.startTicket,
@@ -13,6 +14,7 @@ class TicketData {
     required this.amount,
     required this.total,
     required this.date,
+    required this.count,
   });
 
   factory TicketData.fromJson(Map<String, dynamic> json) {
@@ -22,6 +24,7 @@ class TicketData {
       amount: json['amount'],
       total: json['total'],
       date: json['date'],
+      count: json['count'],
     );
   }
 
@@ -32,6 +35,7 @@ class TicketData {
       'amount': amount,
       'total': total,
       'date': date,
+      'count': count,
     };
   }
 }
