@@ -167,16 +167,12 @@ class _MyHomePageState extends State<MyHomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        backgroundColor: const Color.fromRGBO(13, 71, 161, 1.0),
         title: const Text(
-          'Ticket Collection',
+          'Ticket Calculator',
           style: TextStyle(color: Colors.white),
         ),
         centerTitle: true,
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => downloadPdf(context, savedDataList),
-        child: const Icon(Icons.download),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -252,13 +248,17 @@ class _MyHomePageState extends State<MyHomePage> {
                 child: ElevatedButton(
                   onPressed: _saveData,
                   style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color.fromRGBO(13, 71, 161, 1.0),
                     padding: const EdgeInsets.symmetric(
                         horizontal: 32.0, vertical: 16.0),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8.0),
                     ),
                   ),
-                  child: const Text('Save', style: TextStyle(fontSize: 16)),
+                  child: const Text(
+                    'Save',
+                    style: TextStyle(fontSize: 16, color: Colors.white),
+                  ),
                 ),
               ),
               const SizedBox(height: 32),
@@ -269,16 +269,24 @@ class _MyHomePageState extends State<MyHomePage> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          _iconBtn(
+                            icon: Icons.download_rounded,
+                            color: Colors.blueAccent,
+                            onTap: () => downloadPdf(context, savedDataList),
+                          ),
+                          const SizedBox(width: 8),
                           Text(
-                            "Today's Collection ($currentFormattedDate)",
+                            currentFormattedDate,
                             style: const TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => _clearAll(context),
+                          const SizedBox(width: 12),
+                          _iconBtn(
+                            icon: Icons.delete_outline_rounded,
+                            color: Colors.red,
+                            onTap: () => _clearAll(context),
                           ),
                         ],
                       ),
@@ -422,4 +430,16 @@ class _MyHomePageState extends State<MyHomePage> {
       },
     );
   }
+}
+
+Widget _iconBtn(
+    {required IconData icon,
+    required Color color,
+    required VoidCallback onTap}) {
+  return IconButton(
+    icon: Icon(icon, color: color),
+    onPressed: onTap,
+    tooltip:
+        icon == Icons.delete_outline_rounded ? "Clear All" : "Download PDF",
+  );
 }
